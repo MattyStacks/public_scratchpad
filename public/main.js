@@ -41,29 +41,47 @@ function renderPreview(file) {
   previewPanel.classList.remove('hidden');
   previewTitle.textContent = file.name;
   previewBody.innerHTML = '';
-  openLink.href = file.url;
+  openLink.href = file.fileUrl;
+  const nextUrl = new URL(window.location.href);
+  nextUrl.searchParams.set('file', file.name);
+  window.history.replaceState({}, '', nextUrl);
 
   if (file.previewType === 'text') {
-    const frame = document.createElement('iframe');
-    frame.src = file.url;
-    frame.className = 'preview-frame';
-    frame.setAttribute('sandbox', '');
-    previewBody.append(frame);
+    fetch(`/api/files/${encodeURIComponent(file.name)}/content`)
+      .then((response) => response.text())
+      .then((content) => {
+        const textPreview = document.createElement('pre');
+        textPreview.className = 'preview-text';
+        textPreview.textContent = content;
+        previewBody.replaceChildren(textPreview);
+      })
+      .catch(() => {
+        previewBody.innerHTML =
+          '<p class="preview-empty">Could not load this file preview right now.</p>';
+      });
     return;
   }
 
   if (file.previewType === 'html') {
     const frame = document.createElement('iframe');
-    frame.src = file.url;
     frame.className = 'preview-frame';
     frame.setAttribute('sandbox', '');
     previewBody.append(frame);
+    fetch(`/api/files/${encodeURIComponent(file.name)}/content`)
+      .then((response) => response.text())
+      .then((content) => {
+        frame.srcdoc = content;
+      })
+      .catch(() => {
+        previewBody.innerHTML =
+          '<p class="preview-empty">Could not load this file preview right now.</p>';
+      });
     return;
   }
 
   if (file.previewType === 'pdf') {
     const frame = document.createElement('iframe');
-    frame.src = file.url;
+    frame.src = file.fileUrl;
     frame.className = 'preview-frame';
     previewBody.append(frame);
     return;
@@ -99,7 +117,7 @@ function renderFileList(files) {
     info.append(button, details);
 
     const shareLink = document.createElement('a');
-    shareLink.href = file.url;
+    shareLink.href = file.shareUrl;
     shareLink.target = '_blank';
     shareLink.rel = 'noreferrer';
     shareLink.className = 'secondary-button link-button';
@@ -110,7 +128,8 @@ function renderFileList(files) {
   });
 
   if (files[0]) {
-    renderPreview(files[0]);
+    const requestedFile = new URL(window.location.href).searchParams.get('file');
+    renderPreview(files.find((file) => file.name === requestedFile) || files[0]);
   } else {
     previewPanel.classList.add('hidden');
   }

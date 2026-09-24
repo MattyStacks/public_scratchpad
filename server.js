@@ -6,6 +6,8 @@ const path = require('node:path');
 const { randomUUID } = require('node:crypto');
 
 const DEFAULT_PORT = process.env.PORT || 3000;
+const RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const RATE_LIMIT_MAX_REQUESTS = 120;
 const TEXT_EXTENSIONS = new Set([
   '.txt',
   '.md',
@@ -57,12 +59,37 @@ async function readScratchFiles(uploadDirectory) {
         size: stats.size,
         updatedAt: stats.mtime.toISOString(),
         previewType: getPreviewType(fileName),
-        url: `/files/${encodeURIComponent(fileName)}`,
+        fileUrl: `/files/${encodeURIComponent(fileName)}`,
+        shareUrl:
+          getPreviewType(fileName) === 'html'
+            ? `/?file=${encodeURIComponent(fileName)}`
+            : `/files/${encodeURIComponent(fileName)}`,
       };
     }),
   );
 
   return files.sort((left, right) => new Date(right.updatedAt) - new Date(left.updatedAt));
+}
+
+function createRateLimit({ windowMs, maxRequests }) {
+  const requestsByIp = new Map();
+
+  return (req, res, next) => {
+    const now = Date.now();
+    const key = req.ip || 'unknown';
+    const recentRequests = (requestsByIp.get(key) || []).filter(
+      (timestamp) => now - timestamp < windowMs,
+    );
+
+    recentRequests.push(now);
+    requestsByIp.set(key, recentRequests);
+
+    if (recentRequests.length > maxRequests) {
+      return res.status(429).json({ error: 'Too many requests. Please try again soon.' });
+    }
+
+    next();
+  };
 }
 
 function createStorage(uploadDirectory) {
@@ -90,6 +117,10 @@ function createApp(options = {}) {
   });
 
   const app = express();
+  const fileReadLimiter = createRateLimit({
+    windowMs: RATE_LIMIT_WINDOW_MS,
+    maxRequests: RATE_LIMIT_MAX_REQUESTS,
+  });
   app.use(express.static(path.join(rootDirectory, 'public')));
 
   app.get('/api/files', async (_req, res, next) => {
@@ -115,7 +146,28 @@ function createApp(options = {}) {
     }
   });
 
-  app.get('/files/:fileName', async (req, res, next) => {
+  app.get('/api/files/:fileName/content', fileReadLimiter, async (req, res, next) => {
+    try {
+      const fileName = path.basename(req.params.fileName);
+      const filePath = path.join(uploadDirectory, fileName);
+
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ error: 'File not found.' });
+      }
+
+      const previewType = getPreviewType(filePath);
+      if (previewType !== 'text' && previewType !== 'html') {
+        return res.status(400).json({ error: 'This file type cannot be previewed as text.' });
+      }
+
+      const content = await fsp.readFile(filePath, 'utf8');
+      res.type('text/plain').send(content);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get('/files/:fileName', fileReadLimiter, async (req, res, next) => {
     try {
       const fileName = path.basename(req.params.fileName);
       const filePath = path.join(uploadDirectory, fileName);
@@ -124,8 +176,12 @@ function createApp(options = {}) {
         return res.status(404).send('File not found.');
       }
 
+      const previewType = getPreviewType(filePath);
       res.setHeader('X-Content-Type-Options', 'nosniff');
-      res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
+      res.setHeader(
+        'Content-Disposition',
+        `${previewType === 'html' ? 'attachment' : 'inline'}; filename="${fileName}"`,
+      );
       res.sendFile(filePath);
     } catch (error) {
       next(error);

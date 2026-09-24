@@ -22,4 +22,5 @@ Then open `http://localhost:3000`.
 
 - Uploaded files are stored in `uploads/`
 - Individual files are served from `/files/<generated-name>`
+- HTML files use a scratchpad preview link so the markup renders inside a sandboxed iframe instead of running in the app origin
 - Files larger than 20 MB are rejected

@@ -34,13 +34,46 @@ test('uploads, lists, and serves scratch files', async () => {
     assert.equal(uploadPayload.file.previewType, 'text');
     assert.match(uploadPayload.file.name, /\.txt$/);
 
+    const htmlFormData = new FormData();
+    htmlFormData.append(
+      'scratchFile',
+      new Blob(['<h1>Hello HTML</h1>'], { type: 'text/html' }),
+      'demo.html',
+    );
+
+    const htmlUploadResponse = await fetch(`${baseUrl}/api/files`, {
+      method: 'POST',
+      body: htmlFormData,
+    });
+
+    assert.equal(htmlUploadResponse.status, 201);
+    const htmlUploadPayload = await htmlUploadResponse.json();
+    assert.equal(htmlUploadPayload.file.previewType, 'html');
+    assert.match(htmlUploadPayload.file.shareUrl, /^\/*\?file=/);
+
     const listResponse = await fetch(`${baseUrl}/api/files`);
     assert.equal(listResponse.status, 200);
 
     const listPayload = await listResponse.json();
-    assert.equal(listPayload.files.length, 1);
+    assert.equal(listPayload.files.length, 2);
 
-    const fileResponse = await fetch(`${baseUrl}${listPayload.files[0].url}`);
+    const htmlFile = listPayload.files.find((file) => file.previewType === 'html');
+    assert.ok(htmlFile);
+
+    const htmlContentResponse = await fetch(
+      `${baseUrl}/api/files/${encodeURIComponent(htmlFile.name)}/content`,
+    );
+    assert.equal(htmlContentResponse.status, 200);
+    assert.equal(await htmlContentResponse.text(), '<h1>Hello HTML</h1>');
+
+    const htmlFileResponse = await fetch(`${baseUrl}${htmlFile.fileUrl}`);
+    assert.equal(htmlFileResponse.status, 200);
+    assert.match(htmlFileResponse.headers.get('content-disposition') || '', /attachment/);
+
+    const textFile = listPayload.files.find((file) => file.previewType === 'text');
+    assert.ok(textFile);
+
+    const fileResponse = await fetch(`${baseUrl}${textFile.fileUrl}`);
     assert.equal(fileResponse.status, 200);
     assert.equal(await fileResponse.text(), 'hello scratchpad');
   } finally {
