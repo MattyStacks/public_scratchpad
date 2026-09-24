@@ -152,7 +152,11 @@ function renderFileList(files) {
 
   if (files[0]) {
     const requestedFile = new URL(window.location.href).searchParams.get('file');
-    renderPreview(files.find((file) => file.name === requestedFile) || files[0]);
+    renderPreview(
+      files.find((file) => file.name === activePreviewFileName) ||
+        files.find((file) => file.name === requestedFile) ||
+        files[0],
+    );
   } else {
     previewPanel.classList.add('hidden');
   }
