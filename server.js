@@ -97,8 +97,8 @@ function createStorage(uploadDirectory) {
 function createApp(options = {}) {
   const rootDirectory = options.rootDirectory || __dirname;
   const uploadDirectory = options.uploadDirectory || path.join(rootDirectory, 'uploads');
-  const rateLimitWindowMs = options.rateLimitWindowMs || RATE_LIMIT_WINDOW_MS;
-  const rateLimitMaxRequests = options.rateLimitMaxRequests || RATE_LIMIT_MAX_REQUESTS;
+  const rateLimitWindowMs = options.rateLimitWindowMs ?? RATE_LIMIT_WINDOW_MS;
+  const rateLimitMaxRequests = options.rateLimitMaxRequests ?? RATE_LIMIT_MAX_REQUESTS;
   fs.mkdirSync(uploadDirectory, { recursive: true });
 
   const upload = multer({

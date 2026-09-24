@@ -7,6 +7,7 @@ const openLink = document.querySelector('#open-link');
 const statusMessage = document.querySelector('#status-message');
 const refreshButton = document.querySelector('#refresh-button');
 const uploadForm = document.querySelector('#upload-form');
+let activePreviewFileName = '';
 
 function formatBytes(size) {
   if (size < 1024) {
@@ -47,6 +48,7 @@ async function readPreviewContent(fileName) {
 }
 
 function renderPreview(file) {
+  activePreviewFileName = file.name;
   previewPanel.classList.remove('hidden');
   previewTitle.textContent = file.name;
   previewBody.innerHTML = '';
@@ -58,6 +60,9 @@ function renderPreview(file) {
   if (file.previewType === 'text') {
     readPreviewContent(file.name)
       .then((content) => {
+        if (activePreviewFileName !== file.name) {
+          return;
+        }
         const textPreview = document.createElement('pre');
         textPreview.className = 'preview-text';
         textPreview.textContent = content;
@@ -77,6 +82,9 @@ function renderPreview(file) {
     previewBody.append(frame);
     readPreviewContent(file.name)
       .then((content) => {
+        if (activePreviewFileName !== file.name) {
+          return;
+        }
         frame.srcdoc = content;
       })
       .catch(() => {
