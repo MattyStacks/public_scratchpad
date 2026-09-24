@@ -1,4 +1,5 @@
 const express = require('express');
+const { rateLimit } = require('express-rate-limit');
 const multer = require('multer');
 const fs = require('node:fs');
 const fsp = require('node:fs/promises');
@@ -49,10 +50,15 @@ async function ensureDirectory(directory) {
 async function readScratchFiles(uploadDirectory) {
   await ensureDirectory(uploadDirectory);
   const fileNames = await fsp.readdir(uploadDirectory);
-  const files = await Promise.all(
-    fileNames.map(async (fileName) => {
+  const files = (
+    await Promise.all(
+      fileNames.map(async (fileName) => {
       const filePath = path.join(uploadDirectory, fileName);
       const stats = await fsp.stat(filePath);
+
+      if (!stats.isFile()) {
+        return null;
+      }
 
       return {
         name: fileName,
@@ -65,31 +71,11 @@ async function readScratchFiles(uploadDirectory) {
             ? `/?file=${encodeURIComponent(fileName)}`
             : `/files/${encodeURIComponent(fileName)}`,
       };
-    }),
-  );
+      }),
+    )
+  ).filter(Boolean);
 
   return files.sort((left, right) => new Date(right.updatedAt) - new Date(left.updatedAt));
-}
-
-function createRateLimit({ windowMs, maxRequests }) {
-  const requestsByIp = new Map();
-
-  return (req, res, next) => {
-    const now = Date.now();
-    const key = req.ip || 'unknown';
-    const recentRequests = (requestsByIp.get(key) || []).filter(
-      (timestamp) => now - timestamp < windowMs,
-    );
-
-    recentRequests.push(now);
-    requestsByIp.set(key, recentRequests);
-
-    if (recentRequests.length > maxRequests) {
-      return res.status(429).json({ error: 'Too many requests. Please try again soon.' });
-    }
-
-    next();
-  };
 }
 
 function createStorage(uploadDirectory) {
@@ -107,6 +93,8 @@ function createStorage(uploadDirectory) {
 function createApp(options = {}) {
   const rootDirectory = options.rootDirectory || __dirname;
   const uploadDirectory = options.uploadDirectory || path.join(rootDirectory, 'uploads');
+  const rateLimitWindowMs = options.rateLimitWindowMs || RATE_LIMIT_WINDOW_MS;
+  const rateLimitMaxRequests = options.rateLimitMaxRequests || RATE_LIMIT_MAX_REQUESTS;
   fs.mkdirSync(uploadDirectory, { recursive: true });
 
   const upload = multer({
@@ -117,9 +105,12 @@ function createApp(options = {}) {
   });
 
   const app = express();
-  const fileReadLimiter = createRateLimit({
-    windowMs: RATE_LIMIT_WINDOW_MS,
-    maxRequests: RATE_LIMIT_MAX_REQUESTS,
+  const fileReadLimiter = rateLimit({
+    windowMs: rateLimitWindowMs,
+    limit: rateLimitMaxRequests,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many requests. Please try again soon.' },
   });
   app.use(express.static(path.join(rootDirectory, 'public')));
 
@@ -146,21 +137,39 @@ function createApp(options = {}) {
     }
   });
 
+  async function resolveScratchFile(fileName) {
+    const safeFileName = path.basename(fileName);
+    const filePath = path.join(uploadDirectory, safeFileName);
+
+    try {
+      const stats = await fsp.stat(filePath);
+      if (!stats.isFile()) {
+        return null;
+      }
+
+      return { filePath, fileName: safeFileName };
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        return null;
+      }
+
+      throw error;
+    }
+  }
+
   app.get('/api/files/:fileName/content', fileReadLimiter, async (req, res, next) => {
     try {
-      const fileName = path.basename(req.params.fileName);
-      const filePath = path.join(uploadDirectory, fileName);
-
-      if (!fs.existsSync(filePath)) {
+      const scratchFile = await resolveScratchFile(req.params.fileName);
+      if (!scratchFile) {
         return res.status(404).json({ error: 'File not found.' });
       }
 
-      const previewType = getPreviewType(filePath);
+      const previewType = getPreviewType(scratchFile.filePath);
       if (previewType !== 'text' && previewType !== 'html') {
         return res.status(400).json({ error: 'This file type cannot be previewed as text.' });
       }
 
-      const content = await fsp.readFile(filePath, 'utf8');
+      const content = await fsp.readFile(scratchFile.filePath, 'utf8');
       res.type('text/plain').send(content);
     } catch (error) {
       next(error);
@@ -169,20 +178,18 @@ function createApp(options = {}) {
 
   app.get('/files/:fileName', fileReadLimiter, async (req, res, next) => {
     try {
-      const fileName = path.basename(req.params.fileName);
-      const filePath = path.join(uploadDirectory, fileName);
-
-      if (!fs.existsSync(filePath)) {
+      const scratchFile = await resolveScratchFile(req.params.fileName);
+      if (!scratchFile) {
         return res.status(404).send('File not found.');
       }
 
-      const previewType = getPreviewType(filePath);
+      const previewType = getPreviewType(scratchFile.filePath);
       res.setHeader('X-Content-Type-Options', 'nosniff');
       res.setHeader(
         'Content-Disposition',
-        `${previewType === 'html' ? 'attachment' : 'inline'}; filename="${fileName}"`,
+        `${previewType === 'html' ? 'attachment' : 'inline'}; filename="${scratchFile.fileName}"`,
       );
-      res.sendFile(filePath);
+      res.sendFile(scratchFile.filePath);
     } catch (error) {
       next(error);
     }

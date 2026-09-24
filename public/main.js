@@ -37,6 +37,15 @@ function setStatus(message, isError = false) {
   statusMessage.dataset.tone = isError ? 'error' : 'default';
 }
 
+async function readPreviewContent(fileName) {
+  const response = await fetch(`/api/files/${encodeURIComponent(fileName)}/content`);
+  if (!response.ok) {
+    throw new Error('Could not load this file preview right now.');
+  }
+
+  return response.text();
+}
+
 function renderPreview(file) {
   previewPanel.classList.remove('hidden');
   previewTitle.textContent = file.name;
@@ -47,8 +56,7 @@ function renderPreview(file) {
   window.history.replaceState({}, '', nextUrl);
 
   if (file.previewType === 'text') {
-    fetch(`/api/files/${encodeURIComponent(file.name)}/content`)
-      .then((response) => response.text())
+    readPreviewContent(file.name)
       .then((content) => {
         const textPreview = document.createElement('pre');
         textPreview.className = 'preview-text';
@@ -67,8 +75,7 @@ function renderPreview(file) {
     frame.className = 'preview-frame';
     frame.setAttribute('sandbox', '');
     previewBody.append(frame);
-    fetch(`/api/files/${encodeURIComponent(file.name)}/content`)
-      .then((response) => response.text())
+    readPreviewContent(file.name)
       .then((content) => {
         frame.srcdoc = content;
       })

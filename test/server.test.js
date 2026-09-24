@@ -13,7 +13,12 @@ test('uploads, lists, and serves scratch files', async () => {
   await fs.mkdir(publicDirectory, { recursive: true });
   await fs.writeFile(path.join(publicDirectory, 'index.html'), '<!doctype html><title>test</title>');
 
-  const { app } = createApp({ rootDirectory, uploadDirectory });
+  const { app } = createApp({
+    rootDirectory,
+    uploadDirectory,
+    rateLimitMaxRequests: 6,
+    rateLimitWindowMs: 60_000,
+  });
   const server = app.listen(0);
 
   await new Promise((resolve) => server.once('listening', resolve));
@@ -76,6 +81,23 @@ test('uploads, lists, and serves scratch files', async () => {
     const fileResponse = await fetch(`${baseUrl}${textFile.fileUrl}`);
     assert.equal(fileResponse.status, 200);
     assert.equal(await fileResponse.text(), 'hello scratchpad');
+
+    await fs.mkdir(path.join(uploadDirectory, 'nested'), { recursive: true });
+
+    const directoryResponse = await fetch(`${baseUrl}/files/nested`);
+    assert.equal(directoryResponse.status, 404);
+
+    const missingPreviewResponse = await fetch(`${baseUrl}/api/files/nested/content`);
+    assert.equal(missingPreviewResponse.status, 404);
+
+    const limitedResponses = await Promise.all([
+      fetch(`${baseUrl}/api/files/${encodeURIComponent(textFile.name)}/content`),
+      fetch(`${baseUrl}/api/files/${encodeURIComponent(textFile.name)}/content`),
+      fetch(`${baseUrl}/api/files/${encodeURIComponent(textFile.name)}/content`),
+      fetch(`${baseUrl}/api/files/${encodeURIComponent(textFile.name)}/content`),
+    ]);
+
+    assert.equal(limitedResponses.at(-1).status, 429);
   } finally {
     await new Promise((resolve, reject) => {
       server.close((error) => (error ? reject(error) : resolve()));
