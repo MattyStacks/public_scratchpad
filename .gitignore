@@ -136,8 +136,11 @@ dist
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
-
+ 
 # Vite files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# Scratchpad uploads
+uploads/
