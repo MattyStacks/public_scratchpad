@@ -25,6 +25,10 @@ function sanitizeFilename(filename) {
   return filename.replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/-+/g, '-');
 }
 
+function toHeaderFilename(filename) {
+  return filename.replace(/["\\\r\n]/g, '-');
+}
+
 function getPreviewType(filePath) {
   const extension = path.extname(filePath).toLowerCase();
 
@@ -187,7 +191,9 @@ function createApp(options = {}) {
       res.setHeader('X-Content-Type-Options', 'nosniff');
       res.setHeader(
         'Content-Disposition',
-        `${previewType === 'html' ? 'attachment' : 'inline'}; filename="${scratchFile.fileName}"`,
+        `${previewType === 'html' ? 'attachment' : 'inline'}; filename="${toHeaderFilename(
+          scratchFile.fileName,
+        )}"`,
       );
       res.sendFile(scratchFile.filePath);
     } catch (error) {
