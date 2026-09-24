@@ -1,0 +1,25 @@
+{
+  "name": "public_scratchpad",
+  "version": "1.0.0",
+  "description": "Quick-share scratchpad for HTML, text, PDF, and other files.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "http://localhost:26831/MattyStacks/public_scratchpad"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.7.0",
+    "multer": "^2.4.0"
+  },
+  "devDependencies": {
+    "jsdom": "^30.1.1"
+  }
+}

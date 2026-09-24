@@ -1,0 +1,184 @@
+:root {
+  color-scheme: light;
+  font-family: Inter, system-ui, sans-serif;
+  line-height: 1.5;
+  color: #172033;
+  background: #f3f5fb;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+.layout {
+  width: min(1100px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 2rem 0 4rem;
+  display: grid;
+  gap: 1.5rem;
+}
+
+.card {
+  background: #ffffff;
+  border: 1px solid #dbe2f0;
+  border-radius: 1rem;
+  padding: 1.5rem;
+  box-shadow: 0 12px 40px rgba(23, 32, 51, 0.08);
+}
+
+.hero h1,
+.section-heading h2 {
+  margin: 0;
+}
+
+.lede {
+  max-width: 60ch;
+}
+
+.eyebrow {
+  margin: 0 0 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.8rem;
+  color: #53627a;
+}
+
+.upload-form,
+.section-heading,
+.file-item {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.upload-form {
+  flex-wrap: wrap;
+}
+
+.section-heading {
+  justify-content: space-between;
+}
+
+.file-picker,
+button,
+.link-button {
+  border-radius: 999px;
+  border: 1px solid #b9c5db;
+  font: inherit;
+}
+
+.file-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  background: #f8faff;
+  cursor: pointer;
+}
+
+.file-picker input {
+  max-width: 220px;
+}
+
+button,
+.link-button {
+  padding: 0.9rem 1.15rem;
+  background: #1d4ed8;
+  color: #fff;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.secondary-button {
+  background: #fff;
+  color: #1d4ed8;
+}
+
+.status-message {
+  min-height: 1.5rem;
+  margin: 0.75rem 0 0;
+  color: #35518b;
+}
+
+.status-message[data-tone='error'] {
+  color: #b42318;
+}
+
+.file-list {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.file-item {
+  justify-content: space-between;
+  padding: 1rem;
+  border: 1px solid #dbe2f0;
+  border-radius: 0.85rem;
+}
+
+.file-meta {
+  min-width: 0;
+}
+
+.file-button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #172033;
+  font-weight: 700;
+}
+
+.file-button:focus-visible {
+  outline: 3px solid #1d4ed8;
+  outline-offset: 3px;
+  border-radius: 0.4rem;
+}
+
+.file-details,
+.empty-state,
+.preview-empty {
+  margin: 0.35rem 0 0;
+  color: #53627a;
+}
+
+.preview-text {
+  margin: 0;
+  padding: 1rem;
+  min-height: 18rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  border: 1px solid #dbe2f0;
+  border-radius: 0.85rem;
+  background: #fff;
+}
+
+.preview-body {
+  margin-top: 1rem;
+}
+
+.preview-frame {
+  width: 100%;
+  min-height: 70vh;
+  border: 1px solid #dbe2f0;
+  border-radius: 0.85rem;
+  background: #fff;
+}
+
+.hidden {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .file-item,
+  .section-heading {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
