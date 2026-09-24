@@ -36,6 +36,8 @@ function formatTimestamp(timestamp) {
 function setStatus(message, isError = false) {
   statusMessage.textContent = message;
   statusMessage.dataset.tone = isError ? 'error' : 'default';
+  statusMessage.setAttribute('role', isError ? 'alert' : 'status');
+  statusMessage.setAttribute('aria-live', isError ? 'assertive' : 'polite');
 }
 
 async function readPreviewContent(fileName) {
@@ -69,6 +71,9 @@ function renderPreview(file) {
         previewBody.replaceChildren(textPreview);
       })
       .catch(() => {
+        if (activePreviewFileName !== file.name) {
+          return;
+        }
         previewBody.innerHTML =
           '<p class="preview-empty">Could not load this file preview right now.</p>';
       });
@@ -88,6 +93,9 @@ function renderPreview(file) {
         frame.srcdoc = content;
       })
       .catch(() => {
+        if (activePreviewFileName !== file.name) {
+          return;
+        }
         previewBody.innerHTML =
           '<p class="preview-empty">Could not load this file preview right now.</p>';
       });
