@@ -13,12 +13,7 @@ test('uploads, lists, and serves scratch files', async () => {
   await fs.mkdir(publicDirectory, { recursive: true });
   await fs.writeFile(path.join(publicDirectory, 'index.html'), '<!doctype html><title>test</title>');
 
-  const { app } = createApp({
-    rootDirectory,
-    uploadDirectory,
-    rateLimitMaxRequests: 6,
-    rateLimitWindowMs: 60_000,
-  });
+  const { app } = createApp({ rootDirectory, uploadDirectory });
   const server = app.listen(0);
 
   await new Promise((resolve) => server.once('listening', resolve));
@@ -89,15 +84,43 @@ test('uploads, lists, and serves scratch files', async () => {
 
     const missingPreviewResponse = await fetch(`${baseUrl}/api/files/nested/content`);
     assert.equal(missingPreviewResponse.status, 404);
+  } finally {
+    await new Promise((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()));
+    });
+    await fs.rm(rootDirectory, { recursive: true, force: true });
+  }
+});
 
-    const limitedResponses = await Promise.all([
-      fetch(`${baseUrl}/api/files/${encodeURIComponent(textFile.name)}/content`),
-      fetch(`${baseUrl}/api/files/${encodeURIComponent(textFile.name)}/content`),
-      fetch(`${baseUrl}/api/files/${encodeURIComponent(textFile.name)}/content`),
-      fetch(`${baseUrl}/api/files/${encodeURIComponent(textFile.name)}/content`),
-    ]);
+test('rate limits repeated preview reads deterministically', async () => {
+  const rootDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'scratchpad-limit-root-'));
+  const uploadDirectory = path.join(rootDirectory, 'uploads');
+  const publicDirectory = path.join(rootDirectory, 'public');
+  await fs.mkdir(publicDirectory, { recursive: true });
+  await fs.mkdir(uploadDirectory, { recursive: true });
+  await fs.writeFile(path.join(publicDirectory, 'index.html'), '<!doctype html><title>test</title>');
+  await fs.writeFile(path.join(uploadDirectory, 'notes.txt'), 'limited preview');
 
-    assert.equal(limitedResponses.at(-1).status, 429);
+  const { app } = createApp({
+    rootDirectory,
+    uploadDirectory,
+    rateLimitMaxRequests: 2,
+    rateLimitWindowMs: 60_000,
+  });
+  const server = app.listen(0);
+
+  await new Promise((resolve) => server.once('listening', resolve));
+  const { port } = server.address();
+  const baseUrl = `http://127.0.0.1:${port}`;
+
+  try {
+    const firstResponse = await fetch(`${baseUrl}/api/files/notes.txt/content`);
+    const secondResponse = await fetch(`${baseUrl}/api/files/notes.txt/content`);
+    const thirdResponse = await fetch(`${baseUrl}/api/files/notes.txt/content`);
+
+    assert.equal(firstResponse.status, 200);
+    assert.equal(secondResponse.status, 200);
+    assert.equal(thirdResponse.status, 429);
   } finally {
     await new Promise((resolve, reject) => {
       server.close((error) => (error ? reject(error) : resolve()));
